@@ -10,3 +10,6 @@
 *.index
 checkpoint
 .ipynb_checkpoints
+Data/
+*.h5
+*.hdf5
