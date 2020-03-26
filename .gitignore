@@ -1,0 +1,12 @@
+.DS_Store
+*.synctex.gz
+*.aux
+*.log
+*iMac*
+*.bbl
+*.blg
+*.dvi
+*.data*
+*.index
+checkpoint
+.ipynb_checkpoints
