@@ -28,7 +28,6 @@ module load cuda10.0/toolkit
 module load NCCL/2.2.13-CUDA-9.2.148.1
 module load cuDNN/7.6.2.24-CUDA-10.1.243
 source activate cs765
-# source activate /data/project/bhattlab/pravin_projects/3DCNN_data/work_env
 
 ## get tunneling info
 XDG_RUNTIME_DIR=""
