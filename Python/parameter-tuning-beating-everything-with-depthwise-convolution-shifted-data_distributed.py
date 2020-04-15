@@ -496,7 +496,7 @@ plt.ylabel('accuracy')
 plt.xlabel('epoch')
 plt.legend(['train-accuracy', 'val-accuracy'], loc='upper left')
 #plt.savefig("/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_acc.png", format='png')
-plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_acc-'+FileTime+'.png', format='png')
+plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/acc/python_acc-'+FileTime+'.png', format='png')
 plt.close(fig)
 #
 # # In[ ]:
@@ -513,7 +513,7 @@ plt.title('model loss')
 plt.ylabel('loss')
 plt.xlabel('epoch')
 plt.legend(['train-loss', 'val-loss'], loc='upper left')
-plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_loss-'+FileTime+'.png', format='png')
+plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/loss/python_loss-'+FileTime+'.png', format='png')
 plt.close()
 
 # In[ ]:
@@ -616,7 +616,7 @@ plot_confusion_matrix(cm,figsize=(12,8), hide_ticks=True,cmap=plt.cm.Blues)
 plt.xticks(range(2), ['Normal', 'Pneumonia'], fontsize=16)
 plt.yticks(range(2), ['Normal', 'Pneumonia'], fontsize=16)
 #plt.savefig("/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_confusion-mat.png", format='png')
-plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_confusion-mat-'+FileTime+'.png', format='png')
+plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/confusion-mat/python_confusion-mat-'+FileTime+'.png', format='png')
 plt.close()
 
 # In[ ]:
