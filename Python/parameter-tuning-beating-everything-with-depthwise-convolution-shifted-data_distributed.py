@@ -438,14 +438,17 @@ callbacks = [
 
 
 # batch_size = 16
-nb_epochs = 10
+nb_epochs = 20
 BUFFER_SIZE = len(train_data)
 
 BATCH_SIZE_PER_REPLICA = 80
 BATCH_SIZE = BATCH_SIZE_PER_REPLICA * strategy.num_replicas_in_sync
 batch_size = BATCH_SIZE
 
-print("#--#--"*10, "\n BATCH_SIZE_PER_REPLICA = ", BATCH_SIZE_PER_REPLICA, "\n BATCH_SIZE = ", BATCH_SIZE)
+print("#--#--"*10,  "\n BATCH_SIZE_PER_REPLICA = ", BATCH_SIZE_PER_REPLICA,
+                    "\n BATCH_SIZE = ", BATCH_SIZE,
+                    "\n EPOCHS = ", nb_epochs)
+
 # Get a train data generator
 train_data_gen = data_gen(data=train_data, batch_size=batch_size)
 
@@ -493,7 +496,7 @@ plt.ylabel('accuracy')
 plt.xlabel('epoch')
 plt.legend(['train-accuracy', 'val-accuracy'], loc='upper left')
 #plt.savefig("/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_acc.png", format='png')
-plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_acc'+FileTime+'.png', format='png')
+plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_acc-'+FileTime+'.png', format='png')
 plt.close(fig)
 #
 # # In[ ]:
@@ -510,7 +513,7 @@ plt.title('model loss')
 plt.ylabel('loss')
 plt.xlabel('epoch')
 plt.legend(['train-loss', 'val-loss'], loc='upper left')
-plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_loss'+FileTime+'.png', format='png')
+plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_loss-'+FileTime+'.png', format='png')
 plt.close()
 
 # In[ ]:
@@ -613,7 +616,7 @@ plot_confusion_matrix(cm,figsize=(12,8), hide_ticks=True,cmap=plt.cm.Blues)
 plt.xticks(range(2), ['Normal', 'Pneumonia'], fontsize=16)
 plt.yticks(range(2), ['Normal', 'Pneumonia'], fontsize=16)
 #plt.savefig("/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_confusion-mat.png", format='png')
-plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_confusion-mat'+FileTime+'.png', format='png')
+plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_confusion-mat-'+FileTime+'.png', format='png')
 plt.close()
 
 # In[ ]:
