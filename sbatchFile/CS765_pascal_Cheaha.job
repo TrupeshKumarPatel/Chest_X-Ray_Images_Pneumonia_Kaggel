@@ -1,10 +1,10 @@
 #!/bin/bash
 #
 #SBATCH --job-name=CS765-DL
-#SBATCH --output=jupyter-log-pascal-CS765-%J.txt
+#SBATCH --output=log-pascal-CS765-%J.txt
 #SBATCH --nodes=1
-#SBATCH --partition=pascalnodes-medium
-#SBATCH --time=1-23:00:00
+#SBATCH --partition=pascalnodes
+#SBATCH --time=11:45:00
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=250G
 #SBATCH --gres=gpu:4
@@ -22,12 +22,13 @@ echo "List of nodes allocated to the job" $SLURM_NODELIST
 echo "Total number of nodes in the job's resource allocation." $SLURM_NNODES
 echo "List of allocated GPUs." $CUDA_VISIBLE_DEVICES
 
-cd $USER_DATA
+cd /data/user/tr27p
 module load Anaconda3/5.3.1
 module load cuda10.0/toolkit
 module load NCCL/2.2.13-CUDA-9.2.148.1
 module load cuDNN/7.6.2.24-CUDA-10.1.243
 source activate cs765
+# source activate /data/project/bhattlab/pravin_projects/3DCNN_data/work_env
 
 ## get tunneling info
 XDG_RUNTIME_DIR=""
@@ -46,5 +47,20 @@ echo -e     "   ----------------------------------------------------------------
 sleep 1
 
 ## start an ipcluster instance and launch jupyter server
-jupyter-notebook --no-browser --port=$ipnport --ip=$ipnip
+# jupyter-notebook --no-browser --port=$ipnport --ip=$ipnip
 
+case $1 in 
+
+	"J") 
+		echo 'THIS JUPYTER JOB'
+		echo ''
+		echo ''
+		jupyter-notebook --no-browser --port=$ipnport --ip=$ipnip
+		;;
+	"P")
+		echo 'THIS PYTHON JOB'
+		echo ''
+		echo ''
+		python /data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/parameter-tuning-beating-everything-with-depthwise-convolution-shifted-data_distributed.py
+		;;
+esac
