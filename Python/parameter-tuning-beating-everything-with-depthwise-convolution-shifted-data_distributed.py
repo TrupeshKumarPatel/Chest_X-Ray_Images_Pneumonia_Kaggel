@@ -117,7 +117,7 @@ print('Number of devices: {}\n'.format(strategy.num_replicas_in_sync))
 # ## Load Data
 
 # In[5]:
-FileTime = str(datetime.datetime.now().strftime("%m-%d-%Y-%I-%M"))
+FileTime = str(datetime.datetime.now().strftime("%m-%d-%Y-%H-%M"))
 print("#--#--"*10, "\nFile time: ", FileTime, "\n\n")
 
 # Define path to the data directory
@@ -426,7 +426,7 @@ class PrintLR(tf.keras.callbacks.Callback):
 
 callbacks = [
 #     tf.keras.callbacks.TensorBoard(log_dir='./logs'),
-    ReduceLROnPlateau(monitor='val_loss', factor=.5, patience=3, verbose=1, mode='max'),
+    ReduceLROnPlateau(monitor='val_loss', factor=.5, patience=3, verbose=1, mode='min'),
     ModelCheckpoint(filepath='/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/best_model_todate_python/'+FileTime+'/', monitor='val_loss', verbose=1,
                     save_best_only=True, save_weights_only=True),
     PrintLR()
@@ -438,7 +438,7 @@ callbacks = [
 
 
 # batch_size = 16
-nb_epochs = 20
+nb_epochs = 10
 BUFFER_SIZE = len(train_data)
 
 BATCH_SIZE_PER_REPLICA = 80
