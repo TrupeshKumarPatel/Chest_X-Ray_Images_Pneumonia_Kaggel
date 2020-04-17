@@ -66,6 +66,9 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop
 from tensorflow.keras.callbacks import ModelCheckpoint, Callback, EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.utils import to_categorical
+os.environ['AUTOGRAPH_VERBOSITY'] = "10"
+tf.autograph.set_verbosity(0)
+tf.compat.v1.logging.set_verbosity(0)
 
 import sys
 import datetime
@@ -91,7 +94,7 @@ config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True
 config.log_device_placement = True
 config.gpu_options.visible_device_list='0,1,2,3'
-
+# config.gpu_options.visible_device_list='0,1'
 # Set the random seed in tensorflow at graph level
 tf.compat.v1.set_random_seed(111)
 
@@ -101,8 +104,9 @@ sess = tf.compat.v1.Session(config=config)
 # Set the session in keras
 tf.compat.v1.keras.backend.set_session(sess)
 
-tf.debugging.set_log_device_placement(True)
-strategy = tf.distribute.MirroredStrategy()
+# tf.debugging.set_log_device_placement(True)
+# strategy = tf.distribute.MirroredStrategy()
+strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy()
 
 print("#--#--"*10)
 print('Number of devices: {}\n'.format(strategy.num_replicas_in_sync))
@@ -128,10 +132,12 @@ train_dir = data_dir / 'train'
 
 # Path to validation directory
 val_dir = data_dir / 'val'
-
+# val_dir = data_dir / 'test'
 # Path to test directory
 test_dir = data_dir / 'test'
+# test_dir = data_dir / 'val'
 
+# print("#--#--"*10, "\nTEST to VAL && VAL to TEST \n\n")
 # In[6]:
 
 
@@ -211,6 +217,7 @@ del pneumonia_samples, normal_samples
 
 
 # Get the path to the sub-directories
+# val_dir = Path('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Data/chest_xray/chest_xray/val/')
 normal_cases_dir = val_dir / 'NORMAL'
 pneumonia_cases_dir = val_dir / 'PNEUMONIA'
 
@@ -323,7 +330,7 @@ def data_gen(data, batch_size, augment=False):
                 break
 
         i+=1
-        yield batch_data, batch_labels
+        yield (batch_data, batch_labels)
 
         if i>=steps:
             i=0
@@ -362,6 +369,13 @@ def build_model():
     x = SeparableConv2D(512, (3,3), activation='relu', padding='same', name='Conv4_3')(x)
     x = MaxPooling2D((2,2), name='pool4')(x)
 
+    # x = SeparableConv2D(512, (3,3), activation='relu', padding='same', name='Conv5_1')(x)
+    # x = BatchNormalization(name='bn5')(x)
+    # x = SeparableConv2D(512, (3,3), activation='relu', padding='same', name='Conv5_2')(x)
+    # x = BatchNormalization(name='bn6')(x)
+    # x = SeparableConv2D(512, (3,3), activation='relu', padding='same', name='Conv5_3')(x)
+    # x = MaxPooling2D((2,2), name='pool5')(x)
+
     x = Flatten(name='flatten')(x)
     x = Dense(1024, activation='relu', name='fc1')(x)
     x = Dropout(0.7, name='dropout1')(x)
@@ -378,8 +392,9 @@ def build_model():
 
 with strategy.scope():
     model =  build_model()
-    opt = Adam(lr=1e-4, amsgrad=True, clipnorm=1.)
-    model.compile(loss='binary_crossentropy', metrics=['accuracy'],optimizer=opt)
+    # opt = RMSprop(lr=1e-4, clipnorm=1.)
+    opt = Adam(lr=1e-6, amsgrad=True, clipnorm=1.)
+    model.compile(loss='binary_crossentropy', metrics=['accuracy', tf.keras.metrics.AUC()],optimizer=opt)
 
 
 # In[14]:
@@ -390,25 +405,25 @@ print(model.summary())
 
 # In[15]:
 
+with strategy.scope():
+    # Open the VGG16 weight file
+    f = h5py.File('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Data/vgg16/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5', 'r')
 
-# Open the VGG16 weight file
-f = h5py.File('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Data/vgg16/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5', 'r')
+    # Select the layers for which you want to set weight.
 
-# Select the layers for which you want to set weight.
+    w,b = f['block1_conv1']['block1_conv1_W_1:0'], f['block1_conv1']['block1_conv1_b_1:0']
+    model.layers[1].set_weights = [w,b]
 
-w,b = f['block1_conv1']['block1_conv1_W_1:0'], f['block1_conv1']['block1_conv1_b_1:0']
-model.layers[1].set_weights = [w,b]
+    w,b = f['block1_conv2']['block1_conv2_W_1:0'], f['block1_conv2']['block1_conv2_b_1:0']
+    model.layers[2].set_weights = [w,b]
 
-w,b = f['block1_conv2']['block1_conv2_W_1:0'], f['block1_conv2']['block1_conv2_b_1:0']
-model.layers[2].set_weights = [w,b]
+    w,b = f['block2_conv1']['block2_conv1_W_1:0'], f['block2_conv1']['block2_conv1_b_1:0']
+    model.layers[4].set_weights = [w,b]
 
-w,b = f['block2_conv1']['block2_conv1_W_1:0'], f['block2_conv1']['block2_conv1_b_1:0']
-model.layers[4].set_weights = [w,b]
+    w,b = f['block2_conv2']['block2_conv2_W_1:0'], f['block2_conv2']['block2_conv2_b_1:0']
+    model.layers[5].set_weights = [w,b]
 
-w,b = f['block2_conv2']['block2_conv2_W_1:0'], f['block2_conv2']['block2_conv2_b_1:0']
-model.layers[5].set_weights = [w,b]
-
-f.close()
+    f.close()
 print(model.summary())
 
 
@@ -421,33 +436,58 @@ class PrintLR(tf.keras.callbacks.Callback):
         print('\nLearning rate for epoch {} is {}\n'.format(epoch + 1, model.optimizer.lr.numpy()))
 
 
-# In[17]:
-
-
-callbacks = [
-#     tf.keras.callbacks.TensorBoard(log_dir='./logs'),
-    ReduceLROnPlateau(monitor='val_loss', factor=.5, patience=3, verbose=1, mode='min'),
-    ModelCheckpoint(filepath='/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/best_model_todate_python/'+FileTime+'/', monitor='val_loss', verbose=1,
-                    save_best_only=True, save_weights_only=True),
-    PrintLR()
-]
-
-# es = EarlyStopping(patience=5)
-# chkpt = ModelCheckpoint(filepath='./best_model_todate', save_best_only=True, save_weights_only=True)
 # In[18]:
 
 
 # batch_size = 16
-nb_epochs = 10
+nb_epochs = 40
 BUFFER_SIZE = len(train_data)
 
-BATCH_SIZE_PER_REPLICA = 80
+BATCH_SIZE_PER_REPLICA = 100
 BATCH_SIZE = BATCH_SIZE_PER_REPLICA * strategy.num_replicas_in_sync
 batch_size = BATCH_SIZE
+
+callbacks = [
+#     tf.keras.callbacks.TensorBoard(log_dir='./logs'),
+    ReduceLROnPlateau(monitor='val_auc', factor=0.3, patience=10, verbose=1, mode='max'),
+    # ReduceLROnPlateau(monitor='val_loss', factor=0.3, patience=2, verbose=2, mode='max'),
+    # EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=5, mode='min', restore_best_weights=True),
+
+    # EarlyStopping(  monitor='val_loss', min_delta=1e-3, patience=5, verbose=1,
+    #                 mode='auto', baseline=None, restore_best_weights=True),
+    ModelCheckpoint(filepath='/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/best_model_todate_python/'+FileTime+'/',
+                    monitor='val_auc', verbose=1,
+                    save_best_only=True, save_weights_only=True),
+    PrintLR()
+]
+
+# print("#--#--"*10,  "\n UPDATED MODEL BASED ON VGG16")
 
 print("#--#--"*10,  "\n BATCH_SIZE_PER_REPLICA = ", BATCH_SIZE_PER_REPLICA,
                     "\n BATCH_SIZE = ", BATCH_SIZE,
                     "\n EPOCHS = ", nb_epochs)
+
+def print_inventory(inventory_name, dct):
+    print('%s :' %(inventory_name))
+    for item, amount in dct.items():  # dct.iteritems() in Python 2
+        print('%15s : %s' % (item, amount))
+
+print("#--#--"*10)
+print_inventory("Optimizer", opt.get_config())
+# print("#--#--"*10)
+# print_inventory("Early Stopping", opt.get_config())
+# print("#--#--"*10)
+# print_inventory("Reduce LR On Plateau", opt.get_config())
+
+print('\nReduce LR On Plateau :\n%15s : %s,\n%15s : %s,\n%15s : %s,\n%15s : %s' %  ('Monitor', callbacks[0].monitor,
+                                                                                    'Factor', callbacks[0].factor,
+                                                                                    'Mode', callbacks[0].mode,
+                                                                                    'Patience', callbacks[0].patience) )
+
+# print('\n Early Stopping:\n%15s : %s,\n%15s : %s,\n%15s : %s' %('Monitor', callbacks[1].monitor,
+#                                                                 'MinDelta', callbacks[1].min_delta,
+#                                                                 'patience', callbacks[1].patience) )
+
 
 # Get a train data generator
 train_data_gen = data_gen(data=train_data, batch_size=batch_size)
@@ -469,18 +509,39 @@ print("#--#--"*10,"\n\nNumber of training and validation steps: {} and {}".forma
 # train_dist_dataset = strategy.experimental_distribute_datasets_from_function(train_dataset)
 # val_dist_dataset = strategy.experimental_distribute_datasets_from_function(val_dataset)
 
+# train_dataset = tf.data.Dataset.from_generator(train_data_gen,
+#                                                 output_types=(tf.float32, tf.float32),
+#                                                 output_shapes=((BATCH_SIZE_PER_REPLICA, 224, 224, 3),
+#                                                                 BATCH_SIZE_PER_REPLICA, 2)
+#                                                 # output_shapes=(tf.TensorShape([None]),
+#                                                 #                tf.TensorShape([]))
+#                                                 )
+#
+# val_dataset = tf.data.Dataset.from_generator(val_data_gen,
+#                                              output_types=(tf.float32, tf.float32),
+#                                              output_shapes=((BATCH_SIZE_PER_REPLICA, 224, 224, 3),
+#                                                              BATCH_SIZE_PER_REPLICA, 2)
+#                                              # output_shapes=(tf.TensorShape([None]),
+#                                              #                tf.TensorShape([]))
+#                                              )
+#
+# train_dist_dataset = strategy.experimental_distribute_datasets_from_function(train_dataset)
+# val_dist_dataset = strategy.experimental_distribute_datasets_from_function(val_dataset)
+
+
+# print("#--#--"*10,"\nexperimental_distribute_datasets_from_function")
+
 # In[ ]:
 
-
-# Fit the model
-history = model.fit(train_data_gen, epochs=nb_epochs, steps_per_epoch=nb_train_steps,
-                    validation_data=val_data_gen, validation_steps=nb_valid_steps,
-                    callbacks=callbacks)#,[chkpt, PrintLR()],
-#                     #class_weight={0:1.0, 1:0.4})
+with strategy.scope():
+    history = model.fit_generator(train_data_gen, epochs=nb_epochs, steps_per_epoch=nb_train_steps,
+                        validation_data=val_data_gen, validation_steps=nb_valid_steps,
+                        callbacks=callbacks)#,[chkpt, PrintLR()],
+    #                     #class_weight={0:1.0, 1:0.4})
 
 
 print("#--#--"*10,"\n\nTraining Completed \n\n")
-
+print("history items : ", history.history.keys())
 # In[ ]:
 
 
@@ -516,6 +577,21 @@ plt.legend(['train-loss', 'val-loss'], loc='upper left')
 plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/loss/python_loss-'+FileTime+'.png', format='png')
 plt.close()
 
+h = history
+fig = plt.figure()
+plt.plot(h.history['auc'])
+plt.plot(h.history['val_auc'])
+plt.plot(np.argmax(h.history["auc"]),
+         np.max(h.history["val_auc"]),
+         marker="x", color="b", label="best model")
+plt.title('model AUC (Area under the curve)')
+plt.ylabel('AUC')
+plt.xlabel('epoch')
+plt.legend(['train-AUC', 'val-AUC'], loc='upper left')
+#plt.savefig("/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_acc.png", format='png')
+plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/auc/python_auc-'+FileTime+'.png', format='png')
+plt.close(fig)
+
 # In[ ]:
 
 
@@ -534,8 +610,8 @@ print("#--#--"*10,"\n\nweightPath: ", weightPath)
 
 # In[ ]:
 
-
-model.load_weights(weightPath)
+with strategy.scope():
+    model.load_weights(weightPath)
 
 
 # In[ ]:
@@ -587,16 +663,18 @@ print("#--#--"*10,"\n\nTotal number of labels:", test_labels.shape)
 
 
 # Evaluation on test dataset
-test_loss, test_score = model.evaluate(test_data, test_labels, batch_size=16)
-print("#--#--"*10,"\n\nLoss on test set: ", test_loss)
-print("#--#--"*10,"\n\nAccuracy on test set: ", test_score)
-
+with strategy.scope():
+    test_loss, test_score, test_auc = model.evaluate(test_data, test_labels, batch_size=16)
+print("Loss on test set: ", test_loss)
+print("Accuracy on test set: ", test_score)
+print("AUC on test set: ", test_auc)
 
 # In[ ]:
 
 
 # Get predictions
-preds = model.predict(test_data, batch_size=16)
+with strategy.scope():
+    preds = model.predict(test_data, batch_size=16)
 preds = np.argmax(preds, axis=-1)
 
 # Original labels
@@ -629,7 +707,7 @@ precision = tp/(tp+fp)
 recall = tp/(tp+fn)
 
 print("#--#--"*10,"\n\nRecall of the model is {:.2f}".format(recall))
-print("#--#--"*10,"\n\nPrecision of the model is {:.2f}".format(precision))
-
+print("\nPrecision of the model is {:.2f}".format(precision))
+print("\nF1-score: {}".format(2*precision*recall/(precision+recall)))
 
 # In[ ]:
