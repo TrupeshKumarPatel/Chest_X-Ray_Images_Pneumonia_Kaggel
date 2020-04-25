@@ -396,5 +396,5 @@ dependencies:
     - opencv-python==4.2.0.32
     - shapely==1.7.0
     - tables==3.4.4
-prefix: /data/user/tr27p/.conda/envs/cs765
+ prefix: /data/user/tr27p/.conda/envs/cs765
 
