@@ -136,6 +136,11 @@ val_dir = data_dir / 'val'
 # Path to test directory
 test_dir = data_dir / 'test'
 
+# Define path to the data directory
+val_2_data_dir = Path('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Data/chest_xray/chest_xray/')
+
+# Path to test directory
+val_dir_2 = val_2_data_dir / 'test'
 
 # In[6]:
 
@@ -143,7 +148,8 @@ test_dir = data_dir / 'test'
 
 train_list_ds = tf.data.Dataset.list_files(str(train_dir/"*"/"*"))
 test_list_ds = tf.data.Dataset.list_files(str(test_dir/"*"/"*"))
-val_list_ds = tf.data.Dataset.list_files(str(val_dir/"*"/"*"))
+# val_list_ds = tf.data.Dataset.list_files(str(val_dir/"*"/"*"))
+val_list_ds = tf.data.Dataset.list_files(str(val_dir_2/"*"/"*"))
 
 # for f in train_list_ds.take(1):
 #     print(f.numpy())
@@ -208,10 +214,10 @@ val_labeled_ds = val_list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
 IMG_SIZE = 299
 IMG_SHAPE = (IMG_SIZE, IMG_SIZE, 3)
 
-nb_epochs = 50
+nb_epochs = 20
 BUFFER_SIZE = 5
 
-BATCH_SIZE_PER_REPLICA = 16
+BATCH_SIZE_PER_REPLICA = 32
 BATCH_SIZE = BATCH_SIZE_PER_REPLICA * strategy.num_replicas_in_sync
 
 
@@ -280,7 +286,7 @@ class PrintLR(tf.keras.callbacks.Callback):
 #     else:
 #         return 0.001 * tf.math.exp(0.1 * (10 - epoch)
 
-learning_rate = 5e-5
+learning_rate = 1e-4
 callbacks = [
 #     tf.keras.callbacks.TensorBoard(log_dir='./logs'),
     ReduceLROnPlateau(monitor='val_auc', factor=0.5, patience=5, verbose=1, mode='max', min_delta=0.0001),
@@ -321,7 +327,7 @@ print("#--#--"*10,  "\n BATCH_SIZE_PER_REPLICA = ", BATCH_SIZE_PER_REPLICA,
 
 # Create the base model from the pre-trained model MobileNet V2
 with strategy.scope():
-    base_model = tf.keras.applications.Xception(input_shape=IMG_SHAPE,
+    base_model = tf.keras.applications.InceptionV3(input_shape=IMG_SHAPE,
                                                    include_top=False,
                                                    weights='imagenet')
     base_model.trainable = False
@@ -339,13 +345,13 @@ print("#--#--"*20)
 print("Model Name:", base_model.name)
 print("#--#--"*20)
 
-
+reg_l2 = 0.0001
 with strategy.scope():
     inputs = base_model.output
     flat = Flatten(name='flatten')(inputs)
-    dense_1 = Dense(1024, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01), name='fc1')(flat)
+    dense_1 = Dense(1024, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(reg_l2), name='fc1')(flat)
     drop_1 = Dropout(0.7, name='dropout1')(dense_1)
-    dense_2 = Dense(512, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01), name='fc2')(drop_1)
+    dense_2 = Dense(512, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(reg_l2), name='fc2')(drop_1)
     drop_2 = Dropout(0.5, name='dropout2')(dense_2)
     predict = Dense(2, activation='softmax', name='fc3')(drop_2)
 
@@ -382,8 +388,8 @@ print('\nReduce LR On Plateau :\n%15s : %s,\n%15s : %s,\n%15s : %s,\n%15s : %s'%
 
 
 with strategy.scope():
-    history = model.fit(train_batches, epochs=nb_epochs, steps_per_epoch=nb_train_steps*2,
-                        validation_data=validation_batches, validation_steps=nb_valid_steps*5,
+    history = model.fit(train_batches, epochs=nb_epochs, steps_per_epoch=nb_train_steps,
+                        validation_data=validation_batches, validation_steps=nb_valid_steps,
                         callbacks=callbacks, verbose=1)#,[chkpt, PrintLR()],
                         # class_weight={0:1.0, 1:0.4})
 
@@ -401,7 +407,7 @@ print("#--#--"*10,"\n\nweightPath: ", weightPath)
 
 
 with strategy.scope():
-    base_model_reLoad = tf.keras.applications.Xception(input_shape=IMG_SHAPE,
+    base_model_reLoad = tf.keras.applications.InceptionV3(input_shape=IMG_SHAPE,
                                                           include_top=False,
                                                           weights='imagenet')
     for layer in base_model_reLoad.layers:
@@ -413,9 +419,9 @@ with strategy.scope():
     inputs = base_model_reLoad.output
 
     x = Flatten(name='flatten')(inputs)
-    x = Dense(1024, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01), name='fc1')(x)
+    x = Dense(1024, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(reg_l2), name='fc1')(x)
     x = Dropout(0.7, name='dropout1')(x)
-    x = Dense(512, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01), name='fc2')(x)
+    x = Dense(512, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(reg_l2), name='fc2')(x)
     x = Dropout(0.5, name='dropout2')(x)
     x = Dense(2, activation='softmax', name='fc3')(x)
 
@@ -448,8 +454,8 @@ callbacks = [
 ]
 
 with strategy.scope():
-    history_reLoad = model_reLoad.fit(train_batches, epochs=nb_epochs, steps_per_epoch=nb_train_steps*2,
-                                      validation_data=validation_batches, validation_steps=nb_valid_steps*5,
+    history_reLoad = model_reLoad.fit(train_batches, epochs=nb_epochs, steps_per_epoch=nb_train_steps,
+                                      validation_data=validation_batches, validation_steps=nb_valid_steps,
                                       callbacks=callbacks, verbose=1)#,[chkpt, PrintLR()],
                                     # class_weight={0:1.0, 1:0.4})
 
@@ -471,7 +477,7 @@ plt.ylabel('accuracy')
 plt.xlabel('epoch')
 plt.legend(['train-accuracy', 'val-accuracy'], loc='upper left')
 #plt.savefig("/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_acc.png", format='png')
-plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/FinalRun/acc/python_acc-'+FileTime+'_reLoad.png', format='png')
+plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/FinalRun_2/acc/python_acc-'+FileTime+'_reLoad.png', format='png')
 plt.close(fig)
 
 
@@ -489,7 +495,7 @@ plt.title('model loss')
 plt.ylabel('loss')
 plt.xlabel('epoch')
 plt.legend(['train-loss', 'val-loss'], loc='upper left')
-plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/FinalRun/loss/python_loss-'+FileTime+'_reLoad.png', format='png')
+plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/FinalRun_2/loss/python_loss-'+FileTime+'_reLoad.png', format='png')
 plt.close()
 
 
@@ -508,7 +514,7 @@ plt.ylabel('AUC')
 plt.xlabel('epoch')
 plt.legend(['train-AUC', 'val-AUC'], loc='upper left')
 #plt.savefig("/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_acc.png", format='png')
-plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/FinalRun/auc/python_auc-'+FileTime+'_reLoad.png', format='png')
+plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/FinalRun_2/auc/python_auc-'+FileTime+'_reLoad.png', format='png')
 plt.close(fig)
 
 
@@ -564,7 +570,7 @@ plot_confusion_matrix(cm,figsize=(12,8), hide_ticks=True,cmap=plt.cm.Blues)
 plt.xticks(range(2), ['Normal', 'Pneumonia'], fontsize=16)
 plt.yticks(range(2), ['Normal', 'Pneumonia'], fontsize=16)
 #plt.savefig("/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_confusion-mat.png", format='png')
-plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/FinalRun/confusion-mat/python_confusion-mat-'+FileTime+'_reLoad_TEST-1.png', format='png')
+plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/FinalRun_2/confusion-mat/python_confusion-mat-'+FileTime+'_reLoad_TEST-1.png', format='png')
 plt.close()
 
 # In[ ]:
@@ -630,7 +636,7 @@ plot_confusion_matrix(cm,figsize=(12,8), hide_ticks=True,cmap=plt.cm.Blues)
 plt.xticks(range(2), ['Normal', 'Pneumonia'], fontsize=16)
 plt.yticks(range(2), ['Normal', 'Pneumonia'], fontsize=16)
 #plt.savefig("/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/python_confusion-mat.png", format='png')
-plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/FinalRun/confusion-mat/python_confusion-mat-'+FileTime+'_reLoad_TEST-2.png', format='png')
+plt.savefig('/data/user/tr27p/Courses/CS765-DeepLearning/FinalProject/Chest_X-Ray_Images_Pneumonia/Python/plots/FinalRun_2/confusion-mat/python_confusion-mat-'+FileTime+'_reLoad_TEST-2.png', format='png')
 # plt.show()
 plt.close()
 
